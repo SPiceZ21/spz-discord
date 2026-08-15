@@ -15,15 +15,24 @@ end
 
 -- ── Message id persistence (so we EDIT the same message, not spam new ones) ────
 -- Keyed per channel so a re-used channel keeps separate leaderboard/live ids.
+-- A memory cache backs the KVP so concurrent updates don't each read a stale
+-- "no id yet" before the first POST's callback has persisted the new id.
+local idCache = {}   -- [kind:channel] = message id
 local function kvpKey(kind, channel) return ('spzdc:%s:%s'):format(kind, channel) end
 
 local function getMsgId(kind, channel)
-    local v = GetResourceKvpString(kvpKey(kind, channel))
-    return (v ~= nil and v ~= '') and v or nil
+    local k = kvpKey(kind, channel)
+    if idCache[k] ~= nil then return idCache[k] or nil end
+    local v = GetResourceKvpString(k)
+    v = (v ~= nil and v ~= '') and v or nil
+    idCache[k] = v or false   -- cache the miss too (false) so we don't re-read
+    return v
 end
 local function setMsgId(kind, channel, id)
-    if id then SetResourceKvpString(kvpKey(kind, channel), id)
-    else DeleteResourceKvp(kvpKey(kind, channel)) end
+    local k = kvpKey(kind, channel)
+    idCache[k] = id or false
+    if id then SetResourceKvpString(k, id)
+    else DeleteResourceKvp(k) end
 end
 
 -- ── Low-level REST ─────────────────────────────────────────────────────────────
@@ -58,17 +67,33 @@ end
 
 -- Public: post-or-edit a persistent embed (leaderboard / live).
 -- kind = "leaderboard" | "live". Reuses the stored message id when present.
+local inflight = {}   -- [kind:channel] = true while a create is round-tripping
 function Discord_Upsert(kind, channel, embed)
     if not channel or channel == '' or token() == '' then return end
+    local lock = kind .. ':' .. channel
     local id = getMsgId(kind, channel)
     if id then
         patch(channel, id, embed, function(ok)
             if not ok then
-                post(channel, embed, function(newId) setMsgId(kind, channel, newId) end)
+                -- Stored message is gone → create a fresh one (guarded).
+                if inflight[lock] then return end
+                inflight[lock] = true
+                setMsgId(kind, channel, nil)
+                post(channel, embed, function(newId)
+                    inflight[lock] = nil
+                    setMsgId(kind, channel, newId)
+                end)
             end
         end)
     else
-        post(channel, embed, function(newId) setMsgId(kind, channel, newId) end)
+        -- No message yet — only ONE create may be in flight, or concurrent
+        -- updates would each post a new message.
+        if inflight[lock] then return end
+        inflight[lock] = true
+        post(channel, embed, function(newId)
+            inflight[lock] = nil
+            setMsgId(kind, channel, newId)
+        end)
     end
 end
 

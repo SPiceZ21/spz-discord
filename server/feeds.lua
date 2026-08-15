@@ -136,7 +136,7 @@ AddStateBagChangeHandler('raceState', 'global', function(_, _, value)
     if value == 'LIVE' then
         liveActive = true
         liveStandings = nil
-        Discord_Clear('live', CH.live)   -- fresh live message per race
+        -- Reuse the same live message across races — edit it, never repost.
         SetTimeout(3000, function() updateLive(false) end)
     elseif value == 'IDLE' or value == 'ENDED' or value == 'CLEANUP' then
         if liveActive then
