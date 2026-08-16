@@ -9,7 +9,9 @@ end
 
 local function pad(s, n)
     s = tostring(s or '')
-    if #s > n then return s:sub(1, n - 1) .. '…' end
+    -- ASCII-only truncation ('..'), so monospace code-block columns stay aligned
+    -- (a multibyte ellipsis throws the spacing off).
+    if #s > n then return s:sub(1, n - 2) .. '..' end
     return s .. string.rep(' ', n - #s)
 end
 

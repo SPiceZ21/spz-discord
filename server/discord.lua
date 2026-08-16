@@ -67,7 +67,27 @@ end
 
 -- Public: post-or-edit a persistent embed (leaderboard / live).
 -- kind = "leaderboard" | "live". Reuses the stored message id when present.
-local inflight = {}   -- [kind:channel] = true while a create is round-tripping
+local inflight  = {}   -- [kind:channel] = true while a create is round-tripping
+local nextTry   = {}   -- [kind:channel] = earliest ms to retry a failed create
+local RETRY_MS  = 60000
+
+-- Start a create, guarded against concurrency + rapid retries on failure
+-- (a bad token/perms would otherwise re-POST every update tick).
+local function createGuarded(lock, kind, channel, embed)
+    if inflight[lock] then return end
+    if nextTry[lock] and GetGameTimer() < nextTry[lock] then return end
+    inflight[lock] = true
+    post(channel, embed, function(newId)
+        inflight[lock] = nil
+        if newId then
+            nextTry[lock] = nil
+            setMsgId(kind, channel, newId)
+        else
+            nextTry[lock] = GetGameTimer() + RETRY_MS   -- back off after a failure
+        end
+    end)
+end
+
 function Discord_Upsert(kind, channel, embed)
     if not channel or channel == '' or token() == '' then return end
     local lock = kind .. ':' .. channel
@@ -76,24 +96,12 @@ function Discord_Upsert(kind, channel, embed)
         patch(channel, id, embed, function(ok)
             if not ok then
                 -- Stored message is gone → create a fresh one (guarded).
-                if inflight[lock] then return end
-                inflight[lock] = true
                 setMsgId(kind, channel, nil)
-                post(channel, embed, function(newId)
-                    inflight[lock] = nil
-                    setMsgId(kind, channel, newId)
-                end)
+                createGuarded(lock, kind, channel, embed)
             end
         end)
     else
-        -- No message yet — only ONE create may be in flight, or concurrent
-        -- updates would each post a new message.
-        if inflight[lock] then return end
-        inflight[lock] = true
-        post(channel, embed, function(newId)
-            inflight[lock] = nil
-            setMsgId(kind, channel, newId)
-        end)
+        createGuarded(lock, kind, channel, embed)
     end
 end
 
@@ -103,20 +111,7 @@ function Discord_Post(channel, embed)
     post(channel, embed)
 end
 
--- Public: forget a stored id (e.g. clear the live message after a race ends).
-function Discord_Clear(kind, channel)
-    if channel and channel ~= '' then setMsgId(kind, channel, nil) end
-end
-
 -- ── Embed helpers ──────────────────────────────────────────────────────────────
-local FLAG_BASE = 127397   -- 'A' regional indicator - 'A' ascii
-function Discord_Flag(nation)
-    if not Config.ShowFlags or type(nation) ~= 'string' or #nation ~= 2 then return '' end
-    local a, b = nation:upper():byte(1, 2)
-    if not a or not b then return '' end
-    return utf8.char(FLAG_BASE + a) .. utf8.char(FLAG_BASE + b) .. ' '
-end
-
 function Discord_BaseEmbed(title, color)
     return {
         title = title,
