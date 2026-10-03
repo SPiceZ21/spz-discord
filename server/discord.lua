@@ -65,7 +65,39 @@ local function patch(channel, msgId, embed, cb)
         end, 'PATCH', json.encode({ embeds = { embed } }), headers())
 end
 
--- Public: post-or-edit a persistent embed (leaderboard / live).
+-- ── Adopt an existing message ─────────────────────────────────────────────────
+-- If the stored id is lost (fresh KVP, new host, resource data wiped) we look
+-- through the channel's recent messages for one THIS bot already posted for the
+-- same kind and adopt it, instead of posting a duplicate. Each persistent embed
+-- carries its kind in the footer ("<footer> • <tag>") so it can be recognised.
+local botId = nil
+
+local function footerTag(kind) return Config.Brand.footer .. ' • ' .. (Config.KindTags[kind] or kind) end
+
+local function findExisting(kind, channel, cb)
+    local function scan()
+        PerformHttpRequest(API .. '/channels/' .. channel .. '/messages?limit=50', function(status, body)
+            if status ~= 200 or not body then return cb(nil) end
+            local ok, msgs = pcall(json.decode, body)
+            if not ok or type(msgs) ~= 'table' then return cb(nil) end
+            local want = footerTag(kind)
+            for _, m in ipairs(msgs) do   -- newest first
+                if m.author and m.author.id == botId and m.embeds and m.embeds[1]
+                    and m.embeds[1].footer and m.embeds[1].footer.text == want then
+                    return cb(m.id)
+                end
+            end
+            cb(nil)
+        end, 'GET', '', headers())
+    end
+    if botId then return scan() end
+    PerformHttpRequest(API .. '/users/@me', function(status, body)
+        local ok, me = pcall(json.decode, body or '')
+        if status == 200 and ok and me and me.id then botId = me.id; scan() else cb(nil) end
+    end, 'GET', '', headers())
+end
+
+-- Public: post-or-edit a persistent embed (leaderboard / live / results).
 -- kind = "leaderboard" | "live". Reuses the stored message id when present.
 local inflight  = {}   -- [kind:channel] = true while a create is round-tripping
 local nextTry   = {}   -- [kind:channel] = earliest ms to retry a failed create
@@ -77,19 +109,34 @@ local function createGuarded(lock, kind, channel, embed)
     if inflight[lock] then return end
     if nextTry[lock] and GetGameTimer() < nextTry[lock] then return end
     inflight[lock] = true
-    post(channel, embed, function(newId)
-        inflight[lock] = nil
-        if newId then
-            nextTry[lock] = nil
-            setMsgId(kind, channel, newId)
-        else
-            nextTry[lock] = GetGameTimer() + RETRY_MS   -- back off after a failure
+    findExisting(kind, channel, function(foundId)
+        if foundId then
+            setMsgId(kind, channel, foundId)
+            patch(channel, foundId, embed, function() inflight[lock] = nil end)
+            return
         end
+        post(channel, embed, function(newId)
+            inflight[lock] = nil
+            if newId then
+                nextTry[lock] = nil
+                setMsgId(kind, channel, newId)
+            else
+                nextTry[lock] = GetGameTimer() + RETRY_MS   -- back off after a failure
+            end
+        end)
     end)
 end
 
+local lastBody = {}   -- [kind:channel] = last embed JSON sent (skip no-op edits)
+
 function Discord_Upsert(kind, channel, embed)
     if not channel or channel == '' or token() == '' then return end
+    embed.footer = { text = footerTag(kind), icon_url = Config.Brand.icon }
+    -- Skip the edit when nothing but the timestamp changed.
+    local ts = embed.timestamp; embed.timestamp = nil
+    local sig = json.encode(embed); embed.timestamp = ts
+    if lastBody[kind .. ':' .. channel] == sig and getMsgId(kind, channel) then return end
+    lastBody[kind .. ':' .. channel] = sig
     local lock = kind .. ':' .. channel
     local id = getMsgId(kind, channel)
     if id then

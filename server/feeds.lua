@@ -96,6 +96,11 @@ end)
 -- ── Results embed (per race → history channel) ───────────────────────────────
 local MEDAL = { '🥇', '🥈', '🥉' }
 
+-- Recent races, newest first. Kept in KVP so a restart doesn't blank the
+-- single results message. Each entry is the already-rendered text block.
+local RECENT_KVP = 'spzdc:recentResults'
+local recent = json.decode(GetResourceKvpString(RECENT_KVP) or '[]') or {}
+
 local function postResults(results)
     if not CH.results or CH.results == '' then return end
     if not results then return end
@@ -130,7 +135,22 @@ local function postResults(results)
         embed.fields = { { name = '⚡ Fastest Lap', value = ('%s — %s'):format(fln, Discord_FmtTime(fl)), inline = true } }
     end
 
-    Discord_Post(CH.results, embed)
+    if Config.ResultsMode == 'post' then
+        return Discord_Post(CH.results, embed)
+    end
+
+    -- 'edit': one message showing the last N races.
+    local block = ('**%s** — <t:%d:R>\n%s'):format(embed.title:gsub('^🏁%s+Race Result — ', ''), os.time(), embed.description)
+    if embed.fields then block = block .. '\n⚡ ' .. embed.fields[1].value end
+    table.insert(recent, 1, block)
+    while #recent > (Config.ResultsKeep or 5) do table.remove(recent) end
+    SetResourceKvpString(RECENT_KVP, json.encode(recent))
+
+    local out = Discord_BaseEmbed('🏁  ' .. Config.Brand.name .. ' — Recent Results', Config.Brand.green)
+    local desc = table.concat(recent, '\n\n━━━━━━━━━━\n\n')
+    if #desc > 4000 then desc = desc:sub(1, 3990) .. '\n…' end   -- Discord's 4096 cap
+    out.description = desc
+    Discord_Upsert('results', CH.results, out)
 end
 
 -- ── Lifecycle wiring ─────────────────────────────────────────────────────────

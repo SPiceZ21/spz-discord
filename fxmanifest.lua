@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 
 name 'spz-discord'
-description 'SPiceZ-Core — Discord embeds: live races, results/history, leaderboard'
+description 'SPiceZ-Core — Discord: race embeds, guild-role whitelist, role-based admin mode'
 version '1.0.0'
 author 'SPiceZ-Core'
 
@@ -13,6 +13,9 @@ server_scripts {
     'config.lua',
     'server/discord.lua',
     'server/feeds.lua',
+    'server/guild.lua',
+    'server/whitelist.lua',
+    'server/adminmode.lua',
 }
 
 dependencies {
