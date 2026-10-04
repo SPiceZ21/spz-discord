@@ -14,6 +14,12 @@ local function bypassed(src)
     return false
 end
 
+local function analyticsReject(src, reason)
+    if GetResourceState("spz-analytics") == "started" then
+        pcall(function() exports["spz-analytics"]:Reject(src, reason) end)
+    end
+end
+
 AddEventHandler('playerConnecting', function(name, _, deferrals)
     if not Config.Whitelist.enabled then return end
     local src = source
@@ -26,28 +32,28 @@ AddEventHandler('playerConnecting', function(name, _, deferrals)
     if not Guild_Configured() then
         print('^1[spz-discord] Whitelist is enabled but the guild id or bot token is missing — '
             .. (Config.Whitelist.failOpen and 'letting everyone in.' or 'refusing everyone.') .. '^7')
-        if Config.Whitelist.failOpen then deferrals.done() else deferrals.done(Config.Whitelist.messages.unavailable) end
+        if Config.Whitelist.failOpen then deferrals.done() else analyticsReject(src, Config.Whitelist.messages.unavailable); deferrals.done(Config.Whitelist.messages.unavailable) end
         return
     end
 
     local discordId = Guild_DiscordId(src)
     if not discordId then
-        deferrals.done(Config.Whitelist.messages.noDiscord)
+        analyticsReject(src, Config.Whitelist.messages.noDiscord); deferrals.done(Config.Whitelist.messages.noDiscord)
         return
     end
 
     local m = Guild_GetMember(discordId, true)
     if not m.ok then
         print(('^3[spz-discord] Whitelist lookup failed for %s (%s): %s^7'):format(name, discordId, m.error))
-        if Config.Whitelist.failOpen then deferrals.done() else deferrals.done(Config.Whitelist.messages.unavailable) end
+        if Config.Whitelist.failOpen then deferrals.done() else analyticsReject(src, Config.Whitelist.messages.unavailable); deferrals.done(Config.Whitelist.messages.unavailable) end
         return
     end
     if not m.member then
-        deferrals.done(Config.Whitelist.messages.notInGuild)
+        analyticsReject(src, Config.Whitelist.messages.notInGuild); deferrals.done(Config.Whitelist.messages.notInGuild)
         return
     end
     if #Config.Whitelist.roles > 0 and not Guild_HasAnyRole(m, Config.Whitelist.roles) then
-        deferrals.done(Config.Whitelist.messages.noRole)
+        analyticsReject(src, Config.Whitelist.messages.noRole); deferrals.done(Config.Whitelist.messages.noRole)
         return
     end
 

@@ -64,6 +64,9 @@ local function log(src, on, groups)
     local line = ('%s (%s) admin mode %s%s'):format(GetPlayerName(src) or '?', Guild_DiscordId(src) or 'no discord',
         on and 'ON' or 'OFF', on and (' [' .. table.concat(groups, ', ') .. ']') or '')
     print('^5[spz-discord]^7 ' .. line)
+    if GetResourceState('spz-analytics') == 'started' then
+        pcall(function() exports['spz-analytics']:AdminAction(src, on and 'adminmode_on' or 'adminmode_off', line) end)
+    end
     if GetResourceState('spz-log') == 'started' then
         pcall(function() exports['spz-log']:Log('admin', 'Admin mode', line, on and 'warning' or 'info') end)
     end
