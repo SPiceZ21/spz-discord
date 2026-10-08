@@ -82,4 +82,3 @@ function Guild_HasAnyRole(member, list)
     return false
 end
 
-function Guild_Forget(discordId) cache[discordId] = nil end

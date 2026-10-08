@@ -43,9 +43,6 @@ Config.Brand = {
     footer = "SPiceZ-Core",
 }
 
--- ISO alpha-2 → regional-indicator flag emoji for names (nil-safe).
-Config.ShowFlags = true
-
 -- ── Guild (whitelist + admin mode) ──────────────────────────────────────────
 -- The bot (same token) must be IN this guild. `setr`/`set spz_discord_guild "id"`
 -- in server.cfg overrides `id` here. Role ids: Discord → Server Settings →
