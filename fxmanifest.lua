@@ -3,7 +3,7 @@ game 'gta5'
 
 name 'spz-discord'
 description 'SPiceZ-Core — Discord: race embeds, guild-role whitelist, role-based admin mode'
-version '1.2.0'
+version '1.2.1'
 author 'SPiceZ-Core'
 
 lua54 'yes'
