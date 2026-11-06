@@ -67,8 +67,8 @@ local function log(src, on, groups)
     if GetResourceState('spz-analytics') == 'started' then
         pcall(function() exports['spz-analytics']:AdminAction(src, on and 'adminmode_on' or 'adminmode_off', line) end)
     end
-    if GetResourceState('spz-log') == 'started' then
-        pcall(function() exports['spz-log']:Log('admin', 'Admin mode', line, on and 'warning' or 'info') end)
+    do
+        pcall(function() exports['spz-discord']:Log('admin', 'Admin mode', line, on and 'warning' or 'info') end)
     end
 end
 

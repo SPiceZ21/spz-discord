@@ -2,7 +2,7 @@ fx_version 'cerulean'
 game 'gta5'
 
 name 'spz-discord'
-description 'SPiceZ-Core — Discord: race embeds, guild-role whitelist, role-based admin mode'
+description 'SPiceZ-Core — Discord: race feeds, logs, rich presence, guild-role whitelist, role-based admin mode'
 version '1.2.2'
 author 'SPiceZ-Core'
 
@@ -16,6 +16,13 @@ server_scripts {
     'server/guild.lua',
     'server/whitelist.lua',
     'server/adminmode.lua',
+    'server/logs.lua',
+}
+
+client_scripts {
+    'config_presence.lua',
+    'client/presence.lua',
+    'client/logs.lua',
 }
 
 dependencies {

@@ -81,3 +81,41 @@ Config.AdminMode = {
         -- ["234567890123456789"] = "group.moderator",
     },
 }
+
+-- ── Logs (was spz-log) ──────────────────────────────────────────────────────
+-- exports['spz-discord']:Log(category, title, message, type, fields, src)
+-- Each category posts through the bot into its channel id; a category with no
+-- id uses `default`. With no channel at all it falls back to the webhooks.
+-- Point several categories at one id to merge them into one channel.
+Config.Logs = {
+    Channels = {
+        default  = '',
+        race     = '',   -- track records, rivals, overtakes
+        duel     = '',   -- ghost duels
+        minigame = '',   -- minigame results
+        admin    = '',   -- spz-admin actions, /adminmode
+        cheat    = '',
+        system   = '',
+    },
+    -- Webhooks: the fallback when a category has no channel, and the upload
+    -- target for overtake clips (screenshot-basic can only post to a webhook).
+    Webhooks = {
+        default = '',
+        race    = '',
+    },
+    Colors = {
+        info    = 0xFF6200,
+        success = 0x22C55E,
+        warning = 0xF59E0B,
+        error   = 0xEF4444,
+    },
+    Name       = 'SPiceZ Logs',   -- webhook posts only (bot posts use the bot's name)
+    Thumbnails = {},              -- [category] = image url
+    File       = true,            -- also append every log to spz-discord/logs.txt
+    ShowIp     = false,           -- add the player's IP to the player block
+
+    -- Client-sent logs (exports['spz-discord']:Log on the client): only these
+    -- categories, at most one per player per cooldown.
+    ClientCategories = {},
+    ClientCooldownMs = 5000,
+}

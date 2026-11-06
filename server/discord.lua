@@ -36,10 +36,17 @@ local function setMsgId(kind, channel, id)
 end
 
 -- ── Low-level REST ─────────────────────────────────────────────────────────────
-local function post(channel, embed, cb)
+local function post(channel, embed, cb, retried)
     PerformHttpRequest(API .. '/channels/' .. channel .. '/messages',
         function(status, body)
             local id
+            -- Rate limited (logs can burst): wait what Discord asks, retry once.
+            if status == 429 and not retried then
+                local ok, data = pcall(json.decode, body or '')
+                local wait = math.ceil(((ok and data and tonumber(data.retry_after)) or 1) * 1000)
+                SetTimeout(math.min(wait, 10000) + 50, function() post(channel, embed, cb, true) end)
+                return
+            end
             if status == 200 and body then
                 local ok, data = pcall(json.decode, body)
                 if ok and data then id = data.id end
