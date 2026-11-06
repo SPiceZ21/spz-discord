@@ -15,8 +15,8 @@ local function bypassed(src)
 end
 
 local function analyticsReject(src, reason)
-    if GetResourceState("spz-analytics") == "started" then
-        pcall(function() exports["spz-analytics"]:Reject(src, reason) end)
+    if GetResourceState("spz-core") == "started" then
+        pcall(function() exports["spz-core"]:Reject(src, reason) end)
     end
 end
 

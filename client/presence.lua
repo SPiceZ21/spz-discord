@@ -70,7 +70,7 @@ local function update()
         local ped = PlayerPedId()
         local veh = GetVehiclePedIsIn(ped, false)
         details = (veh ~= 0 and GetPedInVehicleSeat(veh, -1) == ped) and ('Cruising in ' .. vehicleName(veh)) or 'On foot'
-        local ok, profile = pcall(function() return exports['spz-identity']:GetClientProfile() end)
+        local ok, profile = pcall(function() return exports['spz-core']:GetClientProfile() end)
         if ok and profile then
             largeText = ('Level %s · SR %s'):format(profile.level or 1, profile.sr or 0)
             state = ('%s · iR %s'):format(profile.rank or 'C-1', profile.iRating or 1000)
